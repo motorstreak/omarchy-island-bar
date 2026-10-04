@@ -565,6 +565,39 @@ Item {
   readonly property int islandRadius: Math.round(barSize / 2)
   readonly property int panelSize: barSize + islandGap
   readonly property color islandColor: transparent ? "transparent" : background
+  // Space between islands on the same side.
+  readonly property int islandSpacing: Style.space(6)
+
+  // A layout entry {"id": "island-bar.break"} ends one island and starts the
+  // next on that side. Breaks are never built as modules.
+  readonly property string islandBreakId: "island-bar.break"
+
+  function isIslandBreak(entry) {
+    return entryId(entry) === islandBreakId
+  }
+
+  function withoutBreaks(entries) {
+    var out = []
+    for (var i = 0; i < entries.length; i++) {
+      if (!isIslandBreak(entries[i])) out.push(entries[i])
+    }
+    return out
+  }
+
+  // The entries split at breaks into islands; empty ones dropped.
+  function islandGroups(entries) {
+    var groups = [], current = []
+    for (var i = 0; i < entries.length; i++) {
+      if (isIslandBreak(entries[i])) {
+        if (current.length > 0) groups.push(current)
+        current = []
+      } else {
+        current.push(entries[i])
+      }
+    }
+    if (current.length > 0) groups.push(current)
+    return groups
+  }
 
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)
@@ -1372,39 +1405,23 @@ Item {
           y: root.position === "top" ? root.islandGap : 0
           height: root.barSize
 
-          // Pills behind the left and right sections (the center one is drawn
-          // by CenterModules, which knows how its modules are arranged).
-          Rectangle {
-            visible: root.islands && leftModules.visible && leftModules.width > 0
-            x: leftModules.x - root.islandPad
-            width: leftModules.width + 2 * root.islandPad
-            height: parent.height
-            radius: root.islandRadius
-            color: root.islandColor
-          }
-
-          Rectangle {
-            visible: root.islands && rightModules.visible && rightModules.width > 0
-            x: rightModules.x - root.islandPad
-            width: rightModules.width + 2 * root.islandPad
-            height: parent.height
-            radius: root.islandRadius
-            color: root.islandColor
-          }
-
+          // The left and right sides draw a pill per island themselves; the
+          // center draws one pill (CenterModules knows how it's arranged).
           CenterModules { anchors.fill: parent }
 
           LeftModules {
             id: leftModules
+            islandPills: root.islands
             anchors.left: parent.left
-            anchors.leftMargin: Style.space(8) + (root.islands ? root.islandPad : 0)
+            anchors.leftMargin: Style.space(8)
             anchors.verticalCenter: parent.verticalCenter
           }
 
           RightModules {
             id: rightModules
+            islandPills: root.islands
             anchors.right: parent.right
-            anchors.rightMargin: Style.space(8) + (root.islands ? root.islandPad : 0)
+            anchors.rightMargin: Style.space(8)
             anchors.verticalCenter: parent.verticalCenter
           }
         }
@@ -1576,7 +1593,7 @@ Item {
   component CenterModules: Item {
     id: centerRoot
 
-    property var entries: root.layoutEntries("center")
+    property var entries: root.withoutBreaks(root.layoutEntries("center"))
     readonly property bool hasAnchor: root.entryIndex(entries, root.centerAnchor) !== -1
     readonly property var anchorEntry: root.findCenterAnchorEntry()
 
@@ -1783,6 +1800,8 @@ Item {
 
     property var entries: []
     property string region: ""
+    // Islands: each group of entries (split at breaks) on its own pill.
+    property bool islandPills: false
 
     visible: entries.length > 0
     // A hidden list must not build its modules. The center section declares
@@ -1799,15 +1818,45 @@ Item {
       id: horizontalModuleList
 
       Row {
-        spacing: 0
+        spacing: moduleListRoot.islandPills ? root.islandSpacing : 0
 
         Repeater {
-          model: moduleListRoot.entries
+          model: moduleListRoot.islandPills ? root.islandGroups(moduleListRoot.entries)
+                                            : [root.withoutBreaks(moduleListRoot.entries)]
 
-          ModuleSlot {
+          Item {
+            id: island
             required property var modelData
-            entry: modelData
-            region: moduleListRoot.region
+            readonly property real pad: moduleListRoot.islandPills ? root.islandPad : 0
+
+            // (Not hidden while empty: a hidden island's modules would never
+            // be laid out to give it a width.)
+            implicitWidth: islandRow.implicitWidth > 0 ? islandRow.implicitWidth + 2 * pad : 0
+            implicitHeight: moduleListRoot.islandPills ? root.barSize : islandRow.implicitHeight
+
+            Rectangle {
+              visible: moduleListRoot.islandPills
+              anchors.fill: parent
+              radius: root.islandRadius
+              color: root.islandColor
+            }
+
+            Row {
+              id: islandRow
+              x: island.pad
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: 0
+
+              Repeater {
+                model: island.modelData
+
+                ModuleSlot {
+                  required property var modelData
+                  entry: modelData
+                  region: moduleListRoot.region
+                }
+              }
+            }
           }
         }
       }
@@ -1820,7 +1869,7 @@ Item {
         spacing: 0
 
         Repeater {
-          model: moduleListRoot.entries
+          model: root.withoutBreaks(moduleListRoot.entries)
 
           ModuleSlot {
             required property var modelData

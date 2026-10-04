@@ -17,6 +17,25 @@ omarchy bar use island-bar
 Go back to Omarchy's bar with `omarchy bar use omarchy.bar`. Update with
 `omarchy plugin update island-bar`.
 
+## More islands per side
+
+By default each side is one island. To split a side into several, put a break
+entry in its list in `~/.config/omarchy/shell.json` (`bar.layout.left`,
+`center` or `right`) wherever one island should end and the next begin:
+
+```json
+"left": [
+  { "id": "omarchy.menu" },
+  { "id": "island-bar.break" },
+  { "id": "omarchy.workspaces" },
+  { "id": "island-bar.break" },
+  { "id": "omarchy.active-window" }
+]
+```
+
+The file reloads on save. Breaks in the center list are ignored (the center
+stays one island). With Omarchy's bar selected instead, breaks simply do nothing.
+
 ## Translucent, blurred islands (optional)
 
 The islands use the theme's bar colour. To make them translucent, add to
@@ -49,6 +68,7 @@ At the top of `Bar.qml`:
 - `islandGap`: space between the islands and the screen edge
 - `islandPad`: padding inside each island
 - `islandRadius`: corner radius (half the bar height: fully rounded ends)
+- `islandSpacing`: space between islands on the same side
 
 Islands apply to a top or bottom bar; a bar on the left or right is drawn as
 one strip, as in Omarchy. Making the bar transparent (double-click empty
