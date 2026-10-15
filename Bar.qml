@@ -555,11 +555,11 @@ Item {
   readonly property bool vertical: position === "left" || position === "right"
   readonly property int barSize: vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
 
-  // Islands: on a top or bottom bar, each section (left, center, right) sits
-  // on its own rounded pill in the bar color, floating a gap away from the
-  // screen edge, with the wallpaper showing between them. The bar surface
-  // itself is see-through.
-  readonly property bool islands: !vertical
+  // Islands: each section (left, center, right) sits on its own rounded pill
+  // in the bar color, floating a gap away from the screen edge, with the
+  // wallpaper showing between them. The bar surface itself is see-through.
+  // On a side bar the pills run down the screen.
+  readonly property bool islands: true
   readonly property int islandGap: islands ? Style.space(6) : 0
   readonly property int islandPad: Style.space(10)
   readonly property int islandRadius: Math.round(barSize / 2)
@@ -1294,8 +1294,8 @@ Item {
     margins {
       top: root.barHidden && root.position === "top" ? -root.panelSize : 0
       bottom: root.barHidden && root.position === "bottom" ? -root.panelSize : 0
-      left: root.barHidden && root.position === "left" ? -root.barSize : 0
-      right: root.barHidden && root.position === "right" ? -root.barSize : 0
+      left: root.barHidden && root.position === "left" ? -root.panelSize : 0
+      right: root.barHidden && root.position === "right" ? -root.panelSize : 0
     }
 
     anchors {
@@ -1305,7 +1305,7 @@ Item {
       right: root.position === "right" || !root.vertical
     }
 
-    implicitWidth: root.vertical ? root.barSize : 0
+    implicitWidth: root.vertical ? root.panelSize : 0
     implicitHeight: root.vertical ? 0 : root.panelSize
     color: root.transparent || root.islands ? "transparent" : root.background
     surfaceFormat.opaque: false
@@ -1434,18 +1434,28 @@ Item {
       Item {
         anchors.fill: parent
 
-        CenterModules { anchors.fill: parent }
-
-        LeftModules {
+        // The bar proper: barSize wide, the island gap off the screen edge.
+        Item {
           anchors.top: parent.top
-          anchors.topMargin: Style.space(8)
-          anchors.horizontalCenter: parent.horizontalCenter
-        }
-
-        RightModules {
           anchors.bottom: parent.bottom
-          anchors.bottomMargin: Style.space(8)
-          anchors.horizontalCenter: parent.horizontalCenter
+          x: root.position === "left" ? root.islandGap : 0
+          width: root.barSize
+
+          CenterModules { anchors.fill: parent }
+
+          LeftModules {
+            islandPills: root.islands
+            anchors.top: parent.top
+            anchors.topMargin: Style.space(8)
+            anchors.horizontalCenter: parent.horizontalCenter
+          }
+
+          RightModules {
+            islandPills: root.islands
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Style.space(8)
+            anchors.horizontalCenter: parent.horizontalCenter
+          }
         }
       }
     }
@@ -1679,7 +1689,24 @@ Item {
           onHoveredChanged: root.setCenterSectionHovered(hovered)
         }
 
+        // One pill spanning the center, as on a top or bottom bar.
+        Rectangle {
+          readonly property real pillTop: centerRoot.hasAnchor
+            ? (vCenterBefore.visible && vCenterBefore.height > 0 ? vCenterBefore.y : vCenterAnchorModule.y)
+            : vCenterList.y
+          readonly property real pillBottom: centerRoot.hasAnchor
+            ? (vCenterAfter.visible && vCenterAfter.height > 0 ? vCenterAfter.y + vCenterAfter.height : vCenterAnchorModule.y + vCenterAnchorModule.height)
+            : vCenterList.y + vCenterList.height
+          visible: root.islands && pillBottom - pillTop > 0 && centerRoot.entries.length > 0
+          y: pillTop - root.islandPad
+          height: pillBottom - pillTop + 2 * root.islandPad
+          width: parent.width
+          radius: root.islandRadius
+          color: root.islandColor
+        }
+
         ModuleList {
+          id: vCenterList
           visible: !centerRoot.hasAnchor
           entries: centerRoot.entries
           region: "center"
@@ -1687,15 +1714,16 @@ Item {
         }
 
         ModuleList {
+          id: vCenterBefore
           visible: centerRoot.hasAnchor
           entries: root.entriesBefore(centerRoot.entries, root.centerAnchor)
           region: "center"
-          anchors.bottom: centerAnchorModule.top
-          anchors.horizontalCenter: centerAnchorModule.horizontalCenter
+          anchors.bottom: vCenterAnchorModule.top
+          anchors.horizontalCenter: vCenterAnchorModule.horizontalCenter
         }
 
         ModuleSlot {
-          id: centerAnchorModule
+          id: vCenterAnchorModule
           visible: centerRoot.hasAnchor
           entry: centerRoot.anchorEntry
           region: "center"
@@ -1703,11 +1731,12 @@ Item {
         }
 
         ModuleList {
+          id: vCenterAfter
           visible: centerRoot.hasAnchor
           entries: root.entriesAfter(centerRoot.entries, root.centerAnchor)
           region: "center"
-          anchors.top: centerAnchorModule.bottom
-          anchors.horizontalCenter: centerAnchorModule.horizontalCenter
+          anchors.top: vCenterAnchorModule.bottom
+          anchors.horizontalCenter: vCenterAnchorModule.horizontalCenter
         }
       }
     }
@@ -1866,15 +1895,43 @@ Item {
       id: verticalModuleList
 
       Column {
-        spacing: 0
+        spacing: moduleListRoot.islandPills ? root.islandSpacing : 0
 
         Repeater {
-          model: root.withoutBreaks(moduleListRoot.entries)
+          model: moduleListRoot.islandPills ? root.islandGroups(moduleListRoot.entries)
+                                            : [root.withoutBreaks(moduleListRoot.entries)]
 
-          ModuleSlot {
+          Item {
+            id: vIsland
             required property var modelData
-            entry: modelData
-            region: moduleListRoot.region
+            readonly property real pad: moduleListRoot.islandPills ? root.islandPad : 0
+
+            implicitWidth: moduleListRoot.islandPills ? root.barSize : islandColumn.implicitWidth
+            implicitHeight: islandColumn.implicitHeight > 0 ? islandColumn.implicitHeight + 2 * pad : 0
+
+            Rectangle {
+              visible: moduleListRoot.islandPills
+              anchors.fill: parent
+              radius: root.islandRadius
+              color: root.islandColor
+            }
+
+            Column {
+              id: islandColumn
+              y: vIsland.pad
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: 0
+
+              Repeater {
+                model: vIsland.modelData
+
+                ModuleSlot {
+                  required property var modelData
+                  entry: modelData
+                  region: moduleListRoot.region
+                }
+              }
+            }
           }
         }
       }

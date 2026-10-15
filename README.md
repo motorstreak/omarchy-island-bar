@@ -67,11 +67,12 @@ At the top of `Bar.qml`:
 
 - `islandGap`: space between the islands and the screen edge
 - `islandPad`: padding inside each island
-- `islandRadius`: corner radius (half the bar height: fully rounded ends)
+- `islandRadius`: corner radius (half the bar thickness: fully rounded ends)
 - `islandSpacing`: space between islands on the same side
 
-Islands apply to a top or bottom bar; a bar on the left or right is drawn as
-one strip, as in Omarchy. Making the bar transparent (double-click empty
+On a bar at the left or right the islands run down the screen: the left
+section at the top, the center in the middle, the right section at the
+bottom, each break starting a new island below. Making the bar transparent (double-click empty
 center-bar space, or `omarchy bar transparent true`) hides the islands too.
 
 ## Keeping up with Omarchy
