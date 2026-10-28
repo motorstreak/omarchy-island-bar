@@ -573,7 +573,8 @@ Item {
     return String(Border.value("bar", "island-radius")).length > 0 && isFinite(r) ? Math.max(0, Math.min(full, Math.round(r))) : full
   }
   readonly property var islandBorder: Border.surfaceSpec("bar", "border", Commons.Color.accent, 0)
-  readonly property int islandBorderWidth: transparent ? 0 : Math.max(0, Math.round(islandBorder.widths.top || 0))
+  // (Kept on a transparent bar: outlined islands. Unset, there's none.)
+  readonly property int islandBorderWidth: Math.max(0, Math.round(islandBorder.widths.top || 0))
   readonly property color islandBorderColor: islandBorder.color
   readonly property int panelSize: barSize + islandGap
   readonly property color islandColor: transparent ? "transparent" : background
