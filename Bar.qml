@@ -563,7 +563,18 @@ Item {
   readonly property bool islands: true
   readonly property int islandGap: islands ? Style.space(6) : 0
   readonly property int islandPad: Style.space(10)
-  readonly property int islandRadius: Math.round(barSize / 2)
+  // The islands' look, from shell.toml's [bar] (the Window Style plugin's Bar
+  // tab writes it): background-alpha (Omarchy's own), island-radius (fully
+  // round when unset), and border / border-width / border-alpha as Omarchy's
+  // menus take them (no border when unset).
+  readonly property int islandRadius: {
+    var r = Number(Border.value("bar", "island-radius"))
+    var full = Math.round(barSize / 2)
+    return String(Border.value("bar", "island-radius")).length > 0 && isFinite(r) ? Math.max(0, Math.min(full, Math.round(r))) : full
+  }
+  readonly property var islandBorder: Border.surfaceSpec("bar", "border", Commons.Color.accent, 0)
+  readonly property int islandBorderWidth: transparent ? 0 : Math.max(0, Math.round(islandBorder.widths.top || 0))
+  readonly property color islandBorderColor: islandBorder.color
   readonly property int panelSize: barSize + islandGap
   readonly property color islandColor: transparent ? "transparent" : background
   // Space between islands on the same side.
@@ -1640,6 +1651,8 @@ Item {
           height: parent.height
           radius: root.islandRadius
           color: root.islandColor
+          border.width: root.islandBorderWidth
+          border.color: root.islandBorderColor
         }
 
         ModuleList {
@@ -1704,6 +1717,8 @@ Item {
           width: parent.width
           radius: root.islandRadius
           color: root.islandColor
+          border.width: root.islandBorderWidth
+          border.color: root.islandBorderColor
         }
 
         ModuleList {
@@ -1869,6 +1884,8 @@ Item {
               anchors.fill: parent
               radius: root.islandRadius
               color: root.islandColor
+              border.width: root.islandBorderWidth
+              border.color: root.islandBorderColor
             }
 
             Row {
@@ -1915,6 +1932,8 @@ Item {
               anchors.fill: parent
               radius: root.islandRadius
               color: root.islandColor
+              border.width: root.islandBorderWidth
+              border.color: root.islandBorderColor
             }
 
             Column {
